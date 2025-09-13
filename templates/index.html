@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 채팅 - 입장</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="welcome-box">
+            <h1>🎯 실시간 채팅방</h1>
+            <p>바이브 코딩으로 만든 실시간 채팅 웹앱입니다!</p>
+            
+            <div class="loading-notice">
+                <p><strong>🔄 첫 접속 시 안내:</strong></p>
+                <p>무료 서버를 사용하므로 초기 로딩 시 5-10초 정도 소요될 수 있습니다.</p>
+                <p>서버가 슬립 모드에서 깨어나는 중이니 잠시만 기다려주세요! 😊</p>
+            </div>
+            
+            <form id="nicknameForm" class="nickname-form">
+                <div class="form-group">
+                    <label for="nickname">닉네임을 입력하세요:</label>
+                    <input 
+                        type="text" 
+                        id="nickname" 
+                        name="nickname" 
+                        placeholder="예: 채팅왕123" 
+                        maxlength="20"
+                        required
+                    >
+                </div>
+                <button type="submit" class="btn-primary">채팅방 입장 🚀</button>
+            </form>
+            
+            <div class="info-box">
+                <h3>📋 채팅방 규칙</h3>
+                <ul>
+                    <li>서로 존중하며 대화해주세요</li>
+                    <li>닉네임은 최대 20자까지 가능합니다</li>
+                    <li>실시간으로 메시지가 전송됩니다</li>
+                    <li>브라우저를 새로고침하면 연결이 끊어집니다</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('nicknameForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const nicknameInput = document.getElementById('nickname');
+            const nickname = nicknameInput.value.trim();
+            
+            if (nickname === '') {
+                alert('닉네임을 입력해주세요!');
+                nicknameInput.focus();
+                return;
+            }
+            
+            if (nickname.length < 2) {
+                alert('닉네임은 최소 2자 이상 입력해주세요!');
+                nicknameInput.focus();
+                return;
+            }
+            
+            // 채팅방으로 이동
+            window.location.href = `/chat?nickname=${encodeURIComponent(nickname)}`;
+        });
+        
+        // Enter 키로도 입장 가능
+        document.getElementById('nickname').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('nicknameForm').dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // 페이지 로드 시 입력창에 포커스
+        window.addEventListener('load', function() {
+            document.getElementById('nickname').focus();
+        });
+    </script>
+</body>
+</html>
