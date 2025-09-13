@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 채팅방</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Socket.IO 클라이언트 라이브러리 -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- 채팅방 헤더 -->
+        <div class="chat-header">
+            <h2>🎯 실시간 채팅방</h2>
+            <div class="user-info">
+                <span id="currentUser">{{ nickname }}</span>님 환영합니다!
+                <button onclick="leaveChat()" class="btn-leave">나가기</button>
+            </div>
+        </div>
+        
+        <!-- 연결 상태 표시 -->
+        <div id="connectionStatus" class="connection-status">
+            <span id="statusText">연결 중...</span>
+        </div>
+        
+        <!-- 채팅 메시지 영역 -->
+        <div class="chat-messages" id="chatMessages">
+            <div class="system-message">
+                <p>📡 서버에 연결 중입니다...</p>
+                <p>잠시만 기다려주세요! (첫 접속 시 5-10초 소요)</p>
+            </div>
+        </div>
+        
+        <!-- 메시지 입력 영역 -->
+        <div class="chat-input-container">
+            <form id="messageForm" class="message-form">
+                <input 
+                    type="text" 
+                    id="messageInput" 
+                    placeholder="메시지를 입력하세요..." 
+                    maxlength="500"
+                    disabled
+                >
+                <button type="submit" id="sendButton" disabled>전송</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 현재 사용자 닉네임
+        const currentNickname = "{{ nickname }}";
+        
+        // Socket.IO 연결
+        const socket = io();
+        
+        // DOM 요소들
+        const messageForm = document.getElementById('messageForm');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const chatMessages = document.getElementById('chatMessages');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const statusText = document.getElementById('statusText');
+        
+        // 연결 상태 업데이트 함수
+        function updateConnectionStatus(status, message) {
+            statusText.textContent = message;
+            connectionStatus.className = `connection-status ${status}`;
+        }
+        
+        // 메시지를 채팅창에 추가하는 함수
+        function addMessage(data, type = 'message') {
+            const messageDiv = document.createElement('div');
+            
+            if (type === 'system') {
+                messageDiv.className = 'system-message';
+                messageDiv.innerHTML = `<p>${data.message}</p>`;
+            } else if (type === 'user-joined') {
+                messageDiv.className = 'system-message';
+                messageDiv.innerHTML = `
+                    <p>🎉 <strong>${data.nickname}</strong>님이 입장했습니다!</p>
+                    <span class="timestamp">${data.timestamp}</span>
+                `;
+            } else if (type === 'user-left') {
+                messageDiv.className = 'system-message';
+                messageDiv.innerHTML = `
+                    <p>👋 <strong>${data.nickname}</strong>님이 퇴장했습니다.</p>
+                    <span class="timestamp">${data.timestamp}</span>
+                `;
+            } else {
+                // 일반 메시지
+                const isOwnMessage = data.is_own;
+                messageDiv.className = `message ${isOwnMessage ? 'own-message' : 'other-message'}`;
+                
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <span class="nickname">${data.nickname}</span>
+                        <span class="timestamp">${data.timestamp}</span>
+                    </div>
+                    <div class="message-content">${escapeHtml(data.message)}</div>
+                `;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        // HTML 이스케이프 함수 (XSS 방지)
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 채팅창 맨 아래로 스크롤
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // 채팅방 나가기
+        function leaveChat() {
+            if (confirm('정말로 채팅방을 나가시겠습니까?')) {
+                socket.disconnect();
+                window.location.href = '/';
+            }
+        }
+        
+        // Socket.IO 이벤트 리스너들
+        
+        socket.on('connect', function() {
+            console.log('서버에 연결되었습니다!');
+            updateConnectionStatus('connected', '✅ 연결됨');
+            
+            // 채팅방 입장 요청
+            socket.emit('join_chat', {nickname: currentNickname});
+            
+            // 입력창 활성화
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            messageInput.focus();
+            
+            // 시스템 메시지 제거
+            const systemMsg = chatMessages.querySelector('.system-message');
+            if (systemMsg) {
+                systemMsg.remove();
+            }
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('서버 연결이 끊어졌습니다.');
+            updateConnectionStatus('disconnected', '❌ 연결 끊어짐');
+            
+            // 입력창 비활성화
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            addMessage({message: '서버와의 연결이 끊어졌습니다. 페이지를 새로고침해주세요.'}, 'system');
+        });
+        
+        socket.on('welcome_message', function(data) {
+            addMessage(data, 'system');
+        });
+        
+        socket.on('user_joined', function(data) {
+            addMessage(data, 'user-joined');
+        });
+        
+        socket.on('user_left', function(data) {
+            addMessage(data, 'user-left');
+        });
+        
+        socket.on('receive_message', function(data) {
+            addMessage(data);
+        });
+        
+        // 메시지 전송 이벤트
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const message = messageInput.value.trim();
+            if (message === '') return;
+            
+            // 서버로 메시지 전송
+            socket.emit('send_message', {message: message});
+            
+            // 입력창 초기화
+            messageInput.value = '';
+            messageInput.focus();
+        });
+        
+        // 연결 오류 처리
+        socket.on('connect_error', function(error) {
+            console.error('연결 오류:', error);
+            updateConnectionStatus('error', '❌ 연결 오류');
+            addMessage({message: '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.'}, 'system');
+        });
+        
+        // 페이지 언로드 시 연결 해제
+        window.addEventListener('beforeunload', function() {
+            socket.disconnect();
+        });
+    </script>
+</body>
+</html>
