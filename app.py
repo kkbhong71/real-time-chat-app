@@ -7,8 +7,8 @@ from datetime import datetime
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
-# SocketIO 초기화 (CORS 허용으로 다양한 도메인에서 접근 가능)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# SocketIO 초기화 (async_mode 제거)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # 현재 접속한 사용자들을 저장할 딕셔너리
 active_users = {}
